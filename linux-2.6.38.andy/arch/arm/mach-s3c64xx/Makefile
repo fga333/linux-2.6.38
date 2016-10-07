@@ -67,3 +67,5 @@ obj-y				+= dev-audio.o
 obj-$(CONFIG_S3C64XX_DEV_SPI)	+= dev-spi.o
 obj-$(CONFIG_S3C64XX_DEV_TS)	+= dev-ts.o
 obj-$(CONFIG_S3C64XX_DEV_ONENAND1)	+= dev-onenand1.o
+obj-$(CONFIG_TOUCHSCREEN_MINI6410)  += dev-ts-mini6410.o
+

@@ -2065,6 +2065,8 @@ config FB_S3C_DEBUG_REGWRITE
        ---help---
          Show all register writes via printk(KERN_DEBUG)
 
+source "drivers/video/samsung/Kconfig"
+
 config FB_S3C2410
 	tristate "S3C2410 LCD framebuffer support"
 	depends on FB && ARCH_S3C2410

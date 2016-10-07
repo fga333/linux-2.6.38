@@ -16,6 +16,7 @@
 #include <linux/interrupt.h>
 #include <linux/fb.h>
 #include <linux/gpio.h>
+#include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/dm9000.h>
@@ -41,7 +42,7 @@
 #include <plat/fb.h>
 #include <plat/nand.h>
 #include <plat/regs-serial.h>
-#include <plat/ts.h>
+#include <mach/ts.h>
 
 #include <video/platform_lcd.h>
 
@@ -187,7 +188,13 @@ __setup("ethmac=", dm9000_set_mac);
 #endif
 
 static struct map_desc mini6410_iodesc[] = {
-	
+	{
+		/* LCD support */
+		.virtual    = (unsigned long)S3C_VA_LCD,
+		.pfn        = __phys_to_pfn(S3C_PA_FB),
+		.length     = SZ_16K,
+		.type       = MT_DEVICE,
+	},
 #ifdef CONFIG_DM9000
 	{
 		.virtual	= (u32)S3C64XX_VA_DM9000,
@@ -275,10 +282,20 @@ static struct s3c_fb_platdata mini6410_lcd_pdata __initdata = {
 static void mini6410_lcd_power_set(struct plat_lcd_data *pd,
 				   unsigned int power)
 {
-	if (power)
-		gpio_direction_output(S3C64XX_GPE(0), 1);
-	else
-		gpio_direction_output(S3C64XX_GPE(0), 0);
+	if (power) {
+		gpio_direction_output(S3C64XX_GPF(13), 1);
+		gpio_direction_output(S3C64XX_GPF(15), 1);
+
+		/* fire nRESET on power up */
+		gpio_direction_output(S3C64XX_GPN(5), 0);
+		msleep(10);
+		gpio_direction_output(S3C64XX_GPN(5), 1);
+		msleep(1);
+		}
+	else	{
+		gpio_direction_output(S3C64XX_GPF(15), 0);
+		gpio_direction_output(S3C64XX_GPF(13), 0);
+		}
 }
 
 static struct plat_lcd_data mini6410_lcd_power_data = {
@@ -291,11 +308,15 @@ static struct platform_device mini6410_lcd_powerdev = {
 	.dev.platform_data	= &mini6410_lcd_power_data,
 };
 
-static struct s3c2410_ts_mach_info s3c_ts_platform __initdata = {
-	.delay			= 10000,
-	.presc			= 49,
+#ifdef CONFIG_TOUCHSCREEN_MINI6410
+static struct s3c_ts_mach_info s3c_ts_platform __initdata = {
+	.delay			= 0xFFFF,
+	.presc			= 0xFF,
 	.oversampling_shift	= 2,
+	.resol_bit		= 12,
+	.s3c_adc_con	= ADC_TYPE_2,
 };
+#endif
 
 static struct platform_device *mini6410_devices[] __initdata = {
 	&s3c_device_dm9000,
@@ -405,7 +426,7 @@ static void __init mini6410_machine_init(void)
 
 	s3c_nand_set_platdata(&mini6410_nand_info);
 	s3c_fb_set_platdata(&mini6410_lcd_pdata);
-	s3c24xx_ts_set_platdata(&s3c_ts_platform);
+	s3c_ts_set_platdata(&s3c_ts_platform);
 
 	/* configure nCS1 width to 16 bits */
 
@@ -427,8 +448,10 @@ static void __init mini6410_machine_init(void)
 		(4 << S3C64XX_SROM_BCX__TCOS__SHIFT) |
 		(0 << S3C64XX_SROM_BCX__TACS__SHIFT), S3C64XX_SROM_BC1);
 
+	gpio_request(S3C64XX_GPN(5), "LCD power");
+	gpio_request(S3C64XX_GPF(13), "LCD power");
 	gpio_request(S3C64XX_GPF(15), "LCD power");
-	gpio_request(S3C64XX_GPE(0), "LCD power");
+
 
 	platform_add_devices(mini6410_devices, ARRAY_SIZE(mini6410_devices));
 }
